@@ -63,7 +63,7 @@ main{padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 40px)}
 .status button{color:var(--live);font-weight:600}
 
 /* Ligne chaîne */
-.row{display:grid;grid-template-columns:64px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.row{display:grid;grid-template-columns:72px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
 .ch{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border-right:1px solid var(--line);min-width:0}
 .ch img{width:44px;height:30px;object-fit:contain}
 .ch .nm{font:600 12px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.02em;text-align:center;overflow-wrap:anywhere;color:var(--muted)}
@@ -83,6 +83,11 @@ main{padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 40px)}
 .bar{grid-column:2;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:4px}
 .bar i{display:block;height:100%;background:var(--live)}
 .live{color:var(--live)}
+.watch{display:inline-flex;align-items:center;gap:3px;margin-top:4px;padding:4px 7px;max-width:100%;border-radius:99px;background:var(--live);color:#fff;font:600 12px/1 var(--f-body);text-decoration:none;letter-spacing:.02em}
+.watch:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+a.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn.watchbig{background:var(--live);color:#fff}
+.via{font-size:13px;color:var(--muted);margin:-4px 0 0}
 
 /* Vue par chaîne */
 .chooser{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px}
@@ -159,6 +164,42 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;
 function store(k, v){ try{ if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
 
 let DATA = null, CH = [];
+
+/* ---------- Directs officiels et gratuits (vérifiés en octobre 2026) ----------
+   compte : true = la plateforme demande un compte gratuit la première fois */
+const LIVE = {
+  tf1:            ["https://www.tf1.fr/tf1/direct", "TF1+", true],
+  france2:        ["https://www.france.tv/france-2/direct.html", "france.tv", false],
+  france3:        ["https://www.france.tv/france-3/direct.html", "france.tv", false],
+  france4:        ["https://www.france.tv/france-4/direct.html", "france.tv", true],
+  france5:        ["https://www.france.tv/france-5/direct.html", "france.tv", false],
+  m6:             ["https://www.m6.fr/m6/direct", "M6+", true],
+  arte:           ["https://www.arte.tv/fr/direct/", "arte.tv", false],
+  lcp:            ["https://www.tf1.fr/lcp-public-senat/direct", "TF1+", true],
+  w9:             ["https://www.m6.fr/w9/direct", "M6+", true],
+  tmc:            ["https://www.tf1.fr/tmc/direct", "TF1+", true],
+  tfx:            ["https://www.tf1.fr/tfx/direct", "TF1+", true],
+  gulli:          ["https://www.m6.fr/gulli/direct", "M6+", true],
+  bfmtv:          ["https://www.bfmtv.com/en-direct/", "bfmtv.com", false],
+  cnews:          ["https://www.cnews.fr/le-direct", "cnews.fr", false],
+  lci:            ["https://www.tf1.fr/lci/direct", "TF1+", true],
+  franceinfo:     ["https://www.france.tv/franceinfo/direct.html", "france.tv", false],
+  cstar:          ["https://www.canalplus.com/live/", "myCANAL", true],
+  t18:            ["https://t18.fr/direct", "t18.fr", false],
+  novo19:         ["https://www.tf1.fr/novo19/direct", "TF1+", true],
+  tf1seriesfilms: ["https://www.tf1.fr/tf1-series-films/direct", "TF1+", true],
+  lequipe:        ["https://www.lequipe.fr/tv/", "lequipe.fr", false],
+  "6ter":         ["https://www.m6.fr/6ter/direct", "M6+", true],
+  rmcstory:       ["https://www.rmcbfmplay.com/direct/rmc_story", "RMC+", true],
+  rmcdecouverte:  ["https://www.rmcbfmplay.com/direct/rmc_decouverte", "RMC+", true]
+};
+const ALIAS = {lcppublicsenat:"lcp", publicsenat:"lcp", lcpan:"lcp", lequipetv:"lequipe", lequipe21:"lequipe", franceinfotv:"franceinfo", bfm:"bfmtv", tf1seriesfilm:"tf1seriesfilms", tf1sf:"tf1seriesfilms"};
+function liveOf(c){
+  const k = c.name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
+  const key = LIVE[k] ? k : ALIAS[k] || (LIVE[k.replace(/hd$/,"")] ? k.replace(/hd$/,"") : null);
+  return key ? {url: LIVE[key][0], via: LIVE[key][1], account: LIVE[key][2]} : null;
+}
+const PLAY = '<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
 const state = {
   view: store("tv:view") || "soir",
   day: 0,
@@ -232,7 +273,9 @@ function viewNow(){
     const p = c.p[i], next = c.p[i + 1];
     const pct = Math.round((n - p.s) / (p.e - p.s) * 100), left = Math.max(1, Math.round((p.e - n) / 60));
     const bar = `<span class="bar" aria-label="${pct} % écoulé"><i style="width:${pct}%"></i></span><span class="m"><span class="live">● En direct</span> · fin dans ${left} min</span>`;
-    return `<div class="row">${chCell(c)}<div class="progs">
+    const lv = liveOf(c);
+    const cell = chCell(c).replace(/<\/div>$/, lv ? `<a class="watch" href="${esc(lv.url)}" target="_blank" rel="noopener" aria-label="Regarder ${esc(c.name)} en direct">${PLAY}Direct</a></div>` : "</div>");
+    return `<div class="row">${cell}<div class="progs">
       <button class="prog" data-c="${esc(c.id)}" data-s="${p.s}"><span class="h">${hm(p.s)}</span><span class="t">${esc(p.t)}</span>${bar}</button>
       ${next ? progBtn(next, c, "second") : ""}</div></div>`;
   }).join("");
@@ -331,6 +374,12 @@ function openSheet(cid, s){
     ${p.st ? `<p class="sub">${esc(p.st)}</p>` : ""}
     <div class="facts">${facts.map(f => `<span>${f}</span>`).join("")}</div>
     ${p.d ? `<p class="desc">${esc(p.d)}</p>` : ""}
+    ${(() => {
+      const lv = liveOf(c); if (!lv) return "";
+      const onAir = p.s <= nowS() && p.e > nowS();
+      return `<div class="actions"><a class="btn watchbig" href="${esc(lv.url)}" target="_blank" rel="noopener">${PLAY} ${onAir ? "Regarder maintenant" : "Regarder " + esc(c.name) + " en direct"}</a></div>
+        <p class="via">Direct officiel et gratuit sur ${esc(lv.via)}${lv.account ? ", qui demande un compte gratuit la première fois" : ""}.</p>`;
+    })()}
     <div class="actions">
       <button class="btn ${fav ? "on" : ""}" id="favToggle" data-c="${esc(c.id)}">${fav ? "★ Chaîne favorite" : "☆ Ajouter la chaîne à mes favoris"}</button>
       <button class="btn" id="seeCh" data-c="${esc(c.id)}">Toute la journée sur ${esc(c.name)}</button>
@@ -346,6 +395,7 @@ function closeSheet(){
 
 /* ---------- Événements ---------- */
 document.addEventListener("click", e => {
+  if (e.target.closest("a")) return;
   const t = e.target.closest("button, .sheet-bg");
   if (!t) return;
   if (t.matches(".prog")) return openSheet(t.dataset.c, t.dataset.s);
