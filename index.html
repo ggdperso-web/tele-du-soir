@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Télé du soir</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Télé du soir">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f3f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e1118" media="(prefers-color-scheme: dark)">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Mise en page : une colonne façon magazine télé — en-tête collant (jours + vues), une ligne par chaîne, fiche programme en tiroir bas. */
+:root{
+  --bg:#f2f3f6; --surface:#ffffff; --fg:#121726; --muted:#626a7c; --line:#dde0e7;
+  --live:#d92d38; --prime:#b87a0a; --chip:#e7e9ef; --overlay:rgb(18 23 38 / .45);
+  --f-display:"Barlow Condensed","Arial Narrow",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"Barlow",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0e1118; --surface:#171b25; --fg:#eceef3; --muted:#9097a8; --line:#262b38;
+  --live:#ff5a5f; --prime:#e7b04a; --chip:#222735; --overlay:rgb(0 0 0 / .6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1118; --surface:#171b25; --fg:#eceef3; --muted:#9097a8; --line:#262b38;
+  --live:#ff5a5f; --prime:#e7b04a; --chip:#222735; --overlay:rgb(0 0 0 / .6); color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 var(--f-body);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* En-tête */
+header{position:sticky;top:0;z-index:10;background:var(--bg);padding:calc(env(safe-area-inset-top,0px) + 10px) 16px 0;border-bottom:1px solid var(--line)}
+.inner{max-width:720px;margin:0 auto}
+.top{display:flex;align-items:center;gap:10px}
+h1{font:700 26px/1 var(--f-display);letter-spacing:.01em;margin:0;text-transform:uppercase;margin-right:auto;display:flex;align-items:center;gap:8px}
+h1 .dot{width:10px;height:10px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px color-mix(in srgb,var(--live) 25%,transparent)}
+.iconbtn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--chip)}
+.iconbtn[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.days{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:12px -16px 0;padding:0 16px}
+.days::-webkit-scrollbar{display:none}
+.day{flex:none;padding:6px 12px;border-radius:99px;background:var(--chip);font:600 15px var(--f-display);letter-spacing:.03em;text-transform:uppercase}
+.day[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.tabs{display:flex;margin-top:10px}
+.tab{flex:1;padding:10px 0 9px;font:600 16px var(--f-display);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--live)}
+.search{display:flex;gap:8px;margin-top:12px}
+.search input{flex:1;min-width:0;font:inherit;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+
+main{padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 40px)}
+.list{display:flex;flex-direction:column;gap:8px}
+.status{font-size:13px;color:var(--muted);margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.status button{color:var(--live);font-weight:600}
+
+/* Ligne chaîne */
+.row{display:grid;grid-template-columns:64px 1fr;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.ch{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border-right:1px solid var(--line);min-width:0}
+.ch img{width:44px;height:30px;object-fit:contain}
+.ch .nm{font:600 12px/1.1 var(--f-display);text-transform:uppercase;letter-spacing:.02em;text-align:center;overflow-wrap:anywhere;color:var(--muted)}
+.ch .star{color:var(--prime);font-size:12px;line-height:1}
+.progs{min-width:0;display:flex;flex-direction:column}
+.prog{display:grid;grid-template-columns:52px 1fr;gap:2px 10px;padding:10px 12px;text-align:left;width:100%;min-width:0}
+.prog + .prog{border-top:1px dashed var(--line)}
+.prog .h{font:600 17px/1.25 var(--f-display);font-variant-numeric:tabular-nums}
+.prog .t{font:600 19px/1.15 var(--f-display);min-width:0;overflow-wrap:anywhere}
+.prog .m{grid-column:2;font-size:13px;color:var(--muted);min-width:0}
+.prog.second{padding-top:7px;padding-bottom:9px}
+.prog.second .h,.prog.second .t{font-size:15px;font-weight:500;color:var(--muted)}
+.prog.second .t{color:var(--fg)}
+.badge{display:inline-block;font:600 11px/1 var(--f-body);padding:3px 5px;border-radius:4px;border:1px solid currentColor;margin-left:6px;vertical-align:2px;letter-spacing:.02em}
+.badge.new{color:var(--prime)}
+.badge.csa{color:var(--muted)}
+.bar{grid-column:2;height:4px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--live)}
+.live{color:var(--live)}
+
+/* Vue par chaîne */
+.chooser{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 12px;padding:2px 16px}
+.chooser::-webkit-scrollbar{display:none}
+.chip{flex:none;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font:600 14px var(--f-display);text-transform:uppercase}
+.chip img{width:26px;height:18px;object-fit:contain}
+.chip[aria-pressed="true"]{border-color:var(--fg);box-shadow:inset 0 0 0 1px var(--fg)}
+.timeline{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.timeline .prog{border-top:1px solid var(--line)}
+.timeline .prog:first-child{border-top:0}
+.timeline .prog.past{opacity:.5}
+.timeline .prog.now{background:color-mix(in srgb,var(--live) 7%,transparent)}
+.timeline .prog.isprime .h{color:var(--prime)}
+.sep{padding:6px 12px;font:600 12px var(--f-display);text-transform:uppercase;letter-spacing:.08em;color:var(--muted);background:var(--chip)}
+
+/* Fiche */
+.sheet-bg{position:fixed;inset:0;background:var(--overlay);z-index:20;opacity:0;transition:opacity .2s}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--surface);border-radius:18px 18px 0 0;max-height:88vh;overflow:auto;transform:translateY(100%);transition:transform .25s ease;padding:8px 16px calc(env(safe-area-inset-bottom,0px) + 24px)}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 12px}
+.open .sheet-bg{opacity:1}.open .sheet{transform:none}
+.sheet .inner{display:flex;flex-direction:column;gap:10px}
+.sheet img.cover{width:100%;max-width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:var(--chip)}
+.sheet h2{font:700 30px/1.05 var(--f-display);margin:0;text-wrap:balance}
+.sheet .sub{font-size:16px;color:var(--muted);margin:-4px 0 0}
+.facts{display:flex;flex-wrap:wrap;gap:6px}
+.facts span{font:500 14px var(--f-body);padding:4px 9px;border-radius:99px;background:var(--chip)}
+.sheet p.desc{margin:0;max-width:65ch}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 14px;border-radius:10px;background:var(--chip);font-weight:600;font-size:15px}
+.btn.on{background:var(--fg);color:var(--bg)}
+
+.empty{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;display:flex;flex-direction:column;gap:8px}
+.empty h2{font:700 22px var(--f-display);text-transform:uppercase;margin:0}
+.empty p{margin:0;color:var(--muted);max-width:60ch}
+.empty ol{margin:0;padding-left:20px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="inner">
+    <div class="top">
+      <h1><span class="dot" aria-hidden="true"></span>Télé du soir</h1>
+      <button class="iconbtn" id="favBtn" aria-pressed="false" aria-label="Afficher seulement mes chaînes" title="Mes chaînes">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4L2.8 9.5l6.4-.8z"/></svg>
+      </button>
+      <button class="iconbtn" id="searchBtn" aria-pressed="false" aria-label="Rechercher un programme" title="Rechercher">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-4.7-4.7"/></svg>
+      </button>
+    </div>
+    <div class="search" id="searchBox" hidden>
+      <input id="q" type="search" placeholder="Film, série, émission…" aria-label="Rechercher un programme" autocomplete="off">
+    </div>
+    <div class="days" id="days" role="group" aria-label="Jour"></div>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-soir" aria-selected="true">Ce soir</button>
+      <button class="tab" role="tab" id="tab-now" aria-selected="false">Maintenant</button>
+      <button class="tab" role="tab" id="tab-chaine" aria-selected="false">Par chaîne</button>
+    </div>
+  </div>
+</header>
+
+<main><div class="inner" id="view"></div></main>
+
+<div id="sheetWrap" hidden>
+  <div class="sheet-bg" id="sheetBg"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div><div class="inner" id="sheet"></div></div>
+</div>
+
+<script>
+(function(){
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function store(k, v){ try{ if (v === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(v)); }catch(e){ return null; } }
+
+let DATA = null, CH = [];
+const state = {
+  view: store("tv:view") || "soir",
+  day: 0,
+  favOnly: store("tv:favOnly") || false,
+  favs: new Set(store("tv:favs") || []),
+  channel: store("tv:channel") || null,
+  q: ""
+};
+
+/* ---------- Dates ---------- */
+const nowS = () => Math.floor(Date.now() / 1000);
+function dayStart(offset){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() + offset); return d.getTime() / 1000; }
+const at = (offset, h, m) => dayStart(offset) + h * 3600 + m * 60;
+const hm = s => { const d = new Date(s * 1000); return String(d.getHours()).padStart(2,"0") + ":" + String(d.getMinutes()).padStart(2,"0"); };
+function dayLabel(offset, long){
+  if (offset === 0) return "Aujourd'hui";
+  if (offset === 1) return "Demain";
+  const d = new Date(dayStart(offset) * 1000);
+  return d.toLocaleDateString("fr-FR", long ? {weekday:"long", day:"numeric", month:"long"} : {weekday:"short", day:"numeric"}).replace(".","");
+}
+function dur(p){ const m = Math.round((p.e - p.s) / 60); return m >= 60 ? `${Math.floor(m/60)} h ${String(m%60).padStart(2,"0")}`.replace(" 00","") : `${m} min`; }
+
+/* ---------- Sélections ---------- */
+function primeOf(list, offset){
+  const a = at(offset, 20, 45), b = at(offset, 21, 45);
+  let first = list.find(p => p.s >= a && p.s <= b && p.e - p.s >= 25 * 60)
+           || list.find(p => p.s <= at(offset, 21, 15) && p.e > at(offset, 21, 15));
+  if (!first) return [];
+  const i = list.indexOf(first);
+  const second = list.slice(i + 1).find(p => p.e - p.s >= 20 * 60 && p.s < at(offset + 1, 0, 30));
+  return second ? [first, second] : [first];
+}
+const isPrime = (p, offset) => p.s >= at(offset, 20, 45) && p.s <= at(offset, 21, 45);
+function channels(){
+  let list = CH;
+  if (state.favOnly && state.favs.size) list = list.filter(c => state.favs.has(c.id));
+  return [...list].sort((a,b) => (state.favs.has(b.id) - state.favs.has(a.id)) || (a.idx - b.idx));
+}
+
+/* ---------- Fragments ---------- */
+function chCell(c){
+  return `<div class="ch">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<span class="nm">${esc(c.name)}</span>${state.favs.has(c.id) ? '<span class="star" aria-label="Favori">★</span>' : ""}</div>`;
+}
+function meta(p){
+  const bits = [];
+  if (p.c) bits.push(esc(p.c));
+  bits.push(dur(p));
+  if (p.ep) bits.push(`S${p.ep[0]} · É${p.ep[1]}`);
+  return bits.join(" · ") + (p.n ? '<span class="badge new">Inédit</span>' : "") + (p.r ? `<span class="badge csa">${esc(p.r)}</span>` : "");
+}
+function progBtn(p, c, cls, extra){
+  return `<button class="prog ${cls || ""}" data-c="${esc(c.id)}" data-s="${p.s}">
+    <span class="h">${hm(p.s)}</span><span class="t">${esc(p.t)}</span>
+    <span class="m">${meta(p)}</span>${extra || ""}</button>`;
+}
+
+/* ---------- Vues ---------- */
+function viewSoir(){
+  const rows = channels().map(c => {
+    const pr = primeOf(c.p, state.day);
+    if (!pr.length) return "";
+    return `<div class="row">${chCell(c)}<div class="progs">${progBtn(pr[0], c)}${pr[1] ? progBtn(pr[1], c, "second") : ""}</div></div>`;
+  }).join("");
+  return status() + (rows ? `<div class="list">${rows}</div>` : emptyDay());
+}
+function viewNow(){
+  const n = nowS();
+  const rows = channels().map(c => {
+    const i = c.p.findIndex(p => p.s <= n && p.e > n);
+    if (i < 0) return "";
+    const p = c.p[i], next = c.p[i + 1];
+    const pct = Math.round((n - p.s) / (p.e - p.s) * 100), left = Math.max(1, Math.round((p.e - n) / 60));
+    const bar = `<span class="bar" aria-label="${pct} % écoulé"><i style="width:${pct}%"></i></span><span class="m"><span class="live">● En direct</span> · fin dans ${left} min</span>`;
+    return `<div class="row">${chCell(c)}<div class="progs">
+      <button class="prog" data-c="${esc(c.id)}" data-s="${p.s}"><span class="h">${hm(p.s)}</span><span class="t">${esc(p.t)}</span>${bar}</button>
+      ${next ? progBtn(next, c, "second") : ""}</div></div>`;
+  }).join("");
+  return `<p class="status">${hm(n)} · ${channels().length} chaînes${updatedNote()}</p>` + (rows ? `<div class="list">${rows}</div>` : emptyDay());
+}
+function viewChaine(){
+  const list = channels();
+  if (!list.length) return emptyDay();
+  let c = list.find(x => x.id === state.channel) || list[0];
+  state.channel = c.id;
+  const chips = list.map(x => `<button class="chip" data-ch="${esc(x.id)}" aria-pressed="${x.id === c.id}">${x.logo ? `<img src="${esc(x.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ""}${esc(x.name)}</button>`).join("");
+  const a = dayStart(state.day) + 5 * 3600, b = dayStart(state.day + 1) + 5 * 3600, n = nowS();
+  const progs = c.p.filter(p => p.e > a && p.s < b);
+  let html = "", lastSec = "";
+  for (const p of progs){
+    const h = new Date(p.s * 1000).getHours();
+    const sec = p.s >= at(state.day, 20, 45) && p.s < b ? "Soirée" : h < 12 && p.s < at(state.day, 12, 0) ? "Matin" : h < 18 ? "Après-midi" : h < 21 ? "Début de soirée" : "Nuit";
+    const label = p.s >= at(state.day + 1, 0, 0) ? "Nuit" : sec;
+    if (label !== lastSec){ html += `<div class="sep">${label}</div>`; lastSec = label; }
+    const cls = (p.e <= n ? "past" : p.s <= n ? "now" : "") + (isPrime(p, state.day) ? " isprime" : "");
+    const extra = p.s <= n && p.e > n ? `<span class="bar"><i style="width:${Math.round((n - p.s) / (p.e - p.s) * 100)}%"></i></span>` : "";
+    html += progBtn(p, c, cls, extra);
+  }
+  return `<div class="chooser" id="chooser">${chips}</div>` + (progs.length ? `<div class="timeline">${html}</div>` : emptyDay());
+}
+function viewSearch(){
+  const q = state.q.trim().toLowerCase();
+  if (q.length < 2) return `<p class="status">Tapez au moins 2 lettres. La recherche porte sur les ${DATA ? DATA.days : 5} jours à venir.</p>`;
+  const n = nowS(), hits = [];
+  for (const c of channels()) for (const p of c.p)
+    if (p.e > n && ((p.t || "").toLowerCase().includes(q) || (p.st || "").toLowerCase().includes(q))) hits.push([p, c]);
+  hits.sort((x,y) => x[0].s - y[0].s);
+  if (!hits.length) return `<p class="status">Aucun programme ne contient « ${esc(state.q)} » dans les jours à venir.</p>`;
+  let html = "", last = null;
+  for (const [p,c] of hits.slice(0, 120)){
+    const off = Math.round((dayStart(0) - new Date(new Date(p.s*1000).setHours(0,0,0,0)) / 1000) / -86400);
+    if (off !== last){ html += (last !== null ? "</div></div>" : "") + `<div class="timeline" style="margin-bottom:10px"><div class="sep">${dayLabel(off, true)}</div><div>`; last = off; }
+    html += progBtn(p, c, "", `<span class="m" style="grid-column:2">${esc(c.name)}</span>`);
+  }
+  return `<p class="status">${hits.length} résultat${hits.length > 1 ? "s" : ""}</p>` + html + "</div></div>";
+}
+function updatedNote(){
+  if (!DATA) return "";
+  const age = (nowS() - DATA.updated) / 3600;
+  const d = new Date(DATA.updated * 1000).toLocaleString("fr-FR", {weekday:"short", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit"});
+  return ` · mis à jour ${d}` + (age > 36 ? ` · <span class="live">ancien, vérifiez la mise à jour automatique</span>` : "");
+}
+function status(){
+  return `<p class="status">${dayLabel(state.day, true)} · à partir de 21 h${updatedNote()}${state.favOnly && state.favs.size ? ` · <button id="allBtn">Voir toutes les chaînes</button>` : ""}</p>`;
+}
+function emptyDay(){
+  if (state.favOnly && !state.favs.size) return `<div class="empty"><h2>Aucune chaîne favorite</h2><p>Touchez un programme, puis « Ajouter la chaîne à mes favoris ». Vos chaînes favorites s'afficheront en premier.</p></div>`;
+  return `<div class="empty"><h2>Pas de programme</h2><p>Le guide ne couvre pas encore ce jour. Les programmes arrivent environ 5 jours à l'avance.</p></div>`;
+}
+function noData(){
+  return `<div class="empty"><h2>Programmes pas encore chargés</h2>
+    <p>L'appli lit le fichier des programmes que GitHub met à jour deux fois par jour. Il n'existe pas encore.</p>
+    <ol><li>Sur GitHub, ouvrez votre dépôt puis l'onglet « Actions ».</li><li>Choisissez « Mise à jour des programmes », puis « Run workflow ».</li><li>Attendez 2 minutes et rouvrez l'appli.</li></ol></div>`;
+}
+
+/* ---------- Rendu ---------- */
+function render(){
+  for (const [k,id] of [["soir","tab-soir"],["now","tab-now"],["chaine","tab-chaine"]]) $(id).setAttribute("aria-selected", state.view === k && !state.q);
+  $("favBtn").setAttribute("aria-pressed", state.favOnly);
+  const showDays = state.view !== "now" && !state.q;
+  $("days").hidden = !showDays;
+  if (DATA){
+    const btns = [];
+    for (let i = 0; i < DATA.days; i++) btns.push(`<button class="day" data-day="${i}" aria-pressed="${i === state.day}">${i === 0 ? "Auj." : i === 1 ? "Demain" : dayLabel(i)}</button>`);
+    $("days").innerHTML = btns.join("");
+  }
+  const v = $("view");
+  if (!DATA){ v.innerHTML = noData(); return; }
+  v.innerHTML = state.q ? viewSearch() : state.view === "now" ? viewNow() : state.view === "chaine" ? viewChaine() : viewSoir();
+  if (state.view === "chaine" && !state.q){
+    const cur = v.querySelector(".prog.now"), chip = v.querySelector('.chip[aria-pressed="true"]');
+    if (cur) cur.scrollIntoView({block:"center"});
+    if (chip) chip.scrollIntoView({inline:"center", block:"nearest"});
+  }
+}
+
+/* ---------- Fiche programme ---------- */
+function openSheet(cid, s){
+  const c = CH.find(x => x.id === cid), p = c && c.p.find(x => x.s === +s);
+  if (!p) return;
+  const fav = state.favs.has(c.id);
+  const d = new Date(p.s * 1000).toLocaleDateString("fr-FR", {weekday:"long", day:"numeric", month:"long"});
+  const facts = [esc(c.name), `${d}`, `${hm(p.s)} – ${hm(p.e)}`, dur(p)];
+  if (p.c) facts.push(esc(p.c));
+  if (p.ep) facts.push(`Saison ${p.ep[0]}, épisode ${p.ep[1]}`);
+  if (p.r) facts.push(`Déconseillé aux ${esc(p.r.replace("-",""))} ans`.replace("ans ans","ans"));
+  if (p.n) facts.push("Inédit");
+  $("sheet").innerHTML = `
+    ${p.i ? `<img class="cover" src="${esc(p.i)}" alt="" onerror="this.remove()">` : ""}
+    <h2 id="sheetTitle">${esc(p.t)}</h2>
+    ${p.st ? `<p class="sub">${esc(p.st)}</p>` : ""}
+    <div class="facts">${facts.map(f => `<span>${f}</span>`).join("")}</div>
+    ${p.d ? `<p class="desc">${esc(p.d)}</p>` : ""}
+    <div class="actions">
+      <button class="btn ${fav ? "on" : ""}" id="favToggle" data-c="${esc(c.id)}">${fav ? "★ Chaîne favorite" : "☆ Ajouter la chaîne à mes favoris"}</button>
+      <button class="btn" id="seeCh" data-c="${esc(c.id)}">Toute la journée sur ${esc(c.name)}</button>
+      <button class="btn" id="closeSheet">Fermer</button>
+    </div>`;
+  const w = $("sheetWrap"); w.hidden = false;
+  requestAnimationFrame(() => requestAnimationFrame(() => w.classList.add("open")));
+}
+function closeSheet(){
+  const w = $("sheetWrap"); w.classList.remove("open");
+  setTimeout(() => { w.hidden = true; }, 250);
+}
+
+/* ---------- Événements ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, .sheet-bg");
+  if (!t) return;
+  if (t.matches(".prog")) return openSheet(t.dataset.c, t.dataset.s);
+  if (t.matches(".day")){ state.day = +t.dataset.day; render(); window.scrollTo(0,0); return; }
+  if (t.matches(".chip")){ state.channel = t.dataset.ch; store("tv:channel", state.channel); render(); return; }
+  if (t.id === "tab-soir" || t.id === "tab-now" || t.id === "tab-chaine"){
+    state.view = t.id.slice(4); store("tv:view", state.view);
+    state.q = ""; $("q").value = ""; $("searchBox").hidden = true; $("searchBtn").setAttribute("aria-pressed","false");
+    render(); window.scrollTo(0,0); return;
+  }
+  if (t.id === "favBtn"){ state.favOnly = !state.favOnly; store("tv:favOnly", state.favOnly); render(); return; }
+  if (t.id === "allBtn"){ state.favOnly = false; store("tv:favOnly", false); render(); return; }
+  if (t.id === "searchBtn"){
+    const open = $("searchBox").hidden; $("searchBox").hidden = !open; t.setAttribute("aria-pressed", open);
+    if (open) $("q").focus(); else { state.q = ""; $("q").value = ""; render(); }
+    return;
+  }
+  if (t.id === "favToggle"){
+    const id = t.dataset.c;
+    state.favs.has(id) ? state.favs.delete(id) : state.favs.add(id);
+    store("tv:favs", [...state.favs]);
+    const on = state.favs.has(id);
+    t.classList.toggle("on", on); t.textContent = on ? "★ Chaîne favorite" : "☆ Ajouter la chaîne à mes favoris";
+    render(); return;
+  }
+  if (t.id === "seeCh"){
+    state.channel = t.dataset.c; store("tv:channel", state.channel);
+    state.view = "chaine"; store("tv:view", "chaine"); state.q = ""; $("q").value = "";
+    $("searchBox").hidden = true; $("searchBtn").setAttribute("aria-pressed","false");
+    closeSheet(); render(); return;
+  }
+  if (t.id === "closeSheet" || t.matches(".sheet-bg")) return closeSheet();
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+let qt; $("q").addEventListener("input", e => { clearTimeout(qt); qt = setTimeout(() => { state.q = e.target.value; render(); }, 150); });
+
+/* ---------- Chargement ---------- */
+async function load(){
+  try{
+    const r = await fetch("data/programmes.json?" + Math.floor(Date.now() / 600000), {cache: "no-cache"});
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    CH = d.channels.map((c,i) => ({...c, idx: i}));
+    let last = 0; for (const c of CH) if (c.p.length) last = Math.max(last, c.p[c.p.length - 1].s);
+    d.days = Math.max(1, Math.min(8, Math.round((last - dayStart(0)) / 86400)));
+    DATA = d;
+    if (state.day >= d.days) state.day = 0;
+  }catch(e){ DATA = null; }
+  render();
+}
+load();
+setInterval(() => { if (!document.hidden && state.view === "now") render(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+})();
+</script>
+</body>
+</html>
