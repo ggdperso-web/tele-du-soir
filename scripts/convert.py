@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Télécharge le guide TV des chaînes de la TNT (xmltvfr.fr) et le convertit
 en un fichier JSON compact lu par l'appli : data/programmes.json"""
-import gzip, io, json, re, sys, time, urllib.request, zipfile
+import gzip, io, json, os, re, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request, zipfile
 from datetime import datetime, timezone
 import xml.etree.ElementTree as ET
 
@@ -163,6 +163,106 @@ def convert(xml_bytes, source):
         out_channels.append(ch)
     return {"updated": now, "source": source, "channels": out_channels}
 
+# ---------- Notes des spectateurs TMDB (films, séries, documentaires, émissions) ----------
+# Clé gratuite à mettre dans les secrets GitHub sous le nom TMDB_KEY. Sans clé, cette étape est sautée.
+TMDB_KEY = os.environ.get("TMDB_KEY", "").strip()
+CACHE_FILE = "data/tmdb-cache.json"
+SKIP = re.compile(r"m[ée]t[ée]o|journal|\binfos?\b|information|clips?|t[ée]l[ée]achat|culture infos|^autre$|loterie|programme ind|fin des programmes", re.I)
+MOVIE = re.compile(r"film|cin[ée]ma|t[ée]l[ée]film|court m[ée]trage", re.I)
+MIN_VOTES = 15
+
+def norm(t):
+    t = unicodedata.normalize("NFD", t.lower())
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")
+    t = re.sub(r"\s*[\(\[].*?[\)\]]", "", t)
+    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+
+def tmdb(path, params):
+    params = dict(params, language="fr-FR")
+    headers = {"Accept": "application/json", "User-Agent": UA["User-Agent"]}
+    if len(TMDB_KEY) > 60:
+        headers["Authorization"] = "Bearer " + TMDB_KEY
+    else:
+        params["api_key"] = TMDB_KEY
+    url = "https://api.themoviedb.org/3" + path + "?" + urllib.parse.urlencode(params)
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=20) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                time.sleep(2 + attempt * 2); continue
+            if e.code in (401, 403):
+                raise SystemExit("Clé TMDB refusée : vérifiez le secret TMDB_KEY.")
+            return None
+        except Exception:
+            time.sleep(1)
+    return None
+
+def find_tmdb(title, kind, year):
+    key = norm(title)
+    if not key:
+        return None
+    path = "/search/movie" if kind == "movie" else "/search/tv"
+    params = {"query": title, "include_adult": "false"}
+    if year and kind == "movie":
+        params["year"] = year
+    res = tmdb(path, params)
+    hits = (res or {}).get("results") or []
+    if not hits and year and kind == "movie":
+        hits = ((tmdb(path, {"query": title, "include_adult": "false"}) or {}).get("results")) or []
+    for h in hits[:8]:
+        names = [h.get("title"), h.get("original_title"), h.get("name"), h.get("original_name")]
+        if key in [norm(n) for n in names if n]:
+            if year and kind == "movie":
+                y = (h.get("release_date") or "")[:4]
+                if y.isdigit() and abs(int(y) - year) > 1:
+                    continue
+            return {"id": h["id"], "k": kind, "v": h.get("vote_average") or 0, "n": h.get("vote_count") or 0}
+    return None
+
+def enrich_tmdb(data):
+    if not TMDB_KEY:
+        print("TMDB : pas de clé, étape sautée.")
+        return
+    try:
+        cache = json.load(open(CACHE_FILE, encoding="utf-8"))
+    except Exception:
+        cache = {}
+    now = int(time.time())
+    todo = {}
+    for ch in data["channels"]:
+        for p in ch["p"]:
+            cat = p.get("c", "")
+            if SKIP.search(cat) or len(p["t"]) < 2:
+                continue
+            kind = "movie" if MOVIE.search(cat) or MOVIE.search(p.get("st", "")) else "tv"
+            todo.setdefault((p["t"], kind, p.get("y") if kind == "movie" else None), []).append(p)
+    calls = 0
+    for (title, kind, year), progs in todo.items():
+        ck = f"{kind}|{norm(title)}|{year or ''}"
+        hit = cache.get(ck)
+        fresh = hit is not None and now - hit.get("ts", 0) < (30 if hit.get("id") else 7) * 86400
+        if not fresh:
+            found = find_tmdb(title, kind, year)
+            # Une émission notée comme film peut être une série (et inversement)
+            if not found:
+                found = find_tmdb(title, "tv" if kind == "movie" else "movie", None)
+            hit = dict(found or {}, ts=now)
+            cache[ck] = hit
+            calls += 1
+            time.sleep(0.03)
+        if hit.get("id") and hit.get("n", 0) >= MIN_VOTES:
+            note = {"s": "TMDB", "v": round(hit["v"] / 2, 1), "m": 5.0, "n": hit["n"], "id": hit["id"], "k": hit["k"]}
+            for p in progs:
+                p["sr"] = [r for r in p.get("sr", []) if r.get("s") != "TMDB"] + [note]
+    # Ménage : on oublie les entrées de plus de 60 jours
+    cache = {k: v for k, v in cache.items() if now - v.get("ts", 0) < 60 * 86400}
+    with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, ensure_ascii=False, separators=(",", ":"))
+    noted = sum(1 for ch in data["channels"] for p in ch["p"] if any(r.get("s") == "TMDB" for r in p.get("sr", [])))
+    print(f"TMDB : {calls} recherches, {noted} programmes avec une note des spectateurs.")
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:                         # test local : python convert.py fichier.xml
         raw, src = unpack(open(sys.argv[1], "rb").read()), sys.argv[1]
@@ -172,8 +272,8 @@ if __name__ == "__main__":
     n = sum(len(c["p"]) for c in data["channels"])
     if n < 50:
         sys.exit(f"Trop peu de programmes ({n}), fichier ignoré.")
-    import os
     os.makedirs("data", exist_ok=True)
+    enrich_tmdb(data)
     with open("data/programmes.json", "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, separators=(",", ":"))
     print(f"{len(data['channels'])} chaînes, {n} programmes, source {src}")
