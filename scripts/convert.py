@@ -12,6 +12,7 @@ CANDIDATES = [
 ]
 UA = {"User-Agent": "tele-du-soir/1.0 (+github actions)"}
 DESC_MAX = 420
+REVIEW_MAX = 700
 
 def get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
@@ -112,6 +113,40 @@ def convert(xml_bytes, source):
         r = p.find("rating/value")
         if r is not None and r.text and r.text.strip() not in ("", "0", "Tout public", "TP"):
             item["r"] = r.text.strip()
+        # Critiques et notes (presse, spectateurs) quand la source les fournit
+        reviews = []
+        for rv in p.findall("review"):
+            txt = (rv.text or "").strip()
+            if txt:
+                txt = re.sub(r"<[^>]+>", " ", txt)
+                txt = re.sub(r"\s+", " ", txt).strip()
+                if len(txt) > REVIEW_MAX:
+                    txt = txt[:REVIEW_MAX].rsplit(" ", 1)[0] + "…"
+                reviews.append({"src": (rv.get("source") or rv.get("reviewer") or "").strip(), "t": txt})
+        if reviews:
+            item["rv"] = reviews[:4]
+        stars = []
+        for sr in p.findall("star-rating"):
+            v = sr.find("value")
+            m = re.match(r"\s*([\d.,]+)\s*/\s*([\d.,]+)", v.text if v is not None and v.text else "")
+            if m:
+                try:
+                    stars.append({"s": (sr.get("system") or "").strip(), "v": round(float(m.group(1).replace(",", ".")), 1), "m": float(m.group(2).replace(",", "."))})
+                except ValueError:
+                    pass
+        if stars:
+            item["sr"] = stars[:4]
+        cr = p.find("credits")
+        if cr is not None:
+            directors = [d.text.strip() for d in cr.findall("director") if d.text][:2]
+            actors = [a.text.strip() for a in cr.findall("actor") if a.text][:4]
+            if directors:
+                item["dr"] = directors
+            if actors:
+                item["ac"] = actors
+        year = text(p, "date")
+        if year[:4].isdigit():
+            item["y"] = int(year[:4])
         if p.find("new") is not None:
             item["n"] = 1
         if p.find("premiere") is not None:
