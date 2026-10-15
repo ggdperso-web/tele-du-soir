@@ -1,0 +1,28 @@
+TÉLÉ DU SOIR — INSTALLATION SUR GITHUB
+======================================
+
+Contenu du dossier
+- index.html ............ l'appli
+- manifest.webmanifest .. réglages de l'appli sur l'écran d'accueil
+- apple-touch-icon.png, icon-192.png, icon-512.png ... icônes
+- scripts/convert.py .... télécharge et convertit le guide TV (xmltvfr.fr)
+- .github/workflows/mise-a-jour.yml ... mise à jour automatique (vers 5 h et 17 h)
+  (dossier caché sur Mac : Cmd + Maj + . dans le Finder pour l'afficher)
+- README.md
+
+Mise à jour d'un dépôt existant
+1. Dans le dépôt tele-du-soir : Add file > Upload files.
+2. Glissez index.html, manifest.webmanifest et les 3 icônes. Commit changes.
+3. Ouvrez le dossier scripts, puis Add file > Upload files : glissez convert.py. Commit changes.
+4. Le fichier de mise à jour automatique n'a pas changé : rien à faire.
+5. Onglet Actions > Mise à jour des programmes > Run workflow.
+
+Nouvelle installation (dépôt vide)
+1. github.com > + > New repository > nom : tele-du-soir > Public > Create repository.
+2. Lien « uploading an existing file » : glissez tout le CONTENU du dossier (pas le dossier lui-même). Commit changes.
+3. Si le dossier .github n'a pas été envoyé : Add file > Create new file,
+   nom : .github/workflows/mise-a-jour.yml, collez le contenu du fichier fourni, Commit changes.
+4. Settings > Actions > General > Workflow permissions : Read and write permissions > Save.
+5. Actions > Mise à jour des programmes > Run workflow (coche verte en 1 minute environ).
+6. Settings > Pages > Branch : main, /(root) > Save.
+7. iPhone : ouvrez https://VOTRE-PSEUDO.github.io/tele-du-soir/ dans Safari > Partager > Sur l'écran d'accueil.
