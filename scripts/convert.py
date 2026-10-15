@@ -169,13 +169,16 @@ TMDB_KEY = os.environ.get("TMDB_KEY", "").strip()
 CACHE_FILE = "data/tmdb-cache.json"
 SKIP = re.compile(r"m[ée]t[ée]o|journal|\binfos?\b|information|clips?|t[ée]l[ée]achat|culture infos|^autre$|loterie|programme ind|fin des programmes", re.I)
 MOVIE = re.compile(r"film|cin[ée]ma|t[ée]l[ée]film|court m[ée]trage", re.I)
+TVLIKE = re.compile(r"s[ée]rie|feuilleton|sitcom|saga|magazine|[ée]mission|jeu|divertissement|t[ée]l[ée]r[ée]alit[ée]|talk|vari[ée]t[ée]s|dessin anim|documentaire|reportage|sport", re.I)
 MIN_VOTES = 15
 
 def norm(t):
     t = unicodedata.normalize("NFD", t.lower())
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
     t = re.sub(r"\s*[\(\[].*?[\)\]]", "", t)
-    return re.sub(r"[^a-z0-9]+", " ", t).strip()
+    t = re.sub(r"[^a-z0-9]+", " ", t.replace("&", " et ").replace("œ", "oe")).strip()
+    # « Chien & chat » = « Chien et Chat », « Le Grand Bleu » = « Grand Bleu »
+    return " ".join(w for w in t.split() if w not in ("et", "and", "the", "le", "la", "les", "l"))
 
 def tmdb(path, params):
     params = dict(params, language="fr-FR")
@@ -236,7 +239,9 @@ def enrich_tmdb(data):
             cat = p.get("c", "")
             if SKIP.search(cat) or len(p["t"]) < 2:
                 continue
-            kind = "movie" if MOVIE.search(cat) or MOVIE.search(p.get("st", "")) else "tv"
+            # Les films sont souvent classés par genre (« Comédie », « Drame »…) : sans épisode, assez longs et hors séries/émissions, on cherche d'abord un film
+            looks_movie = "ep" not in p and not TVLIKE.search(cat) and (p["e"] - p["s"]) >= 70 * 60
+            kind = "movie" if MOVIE.search(cat) or MOVIE.search(p.get("st", "")) or looks_movie else "tv"
             todo.setdefault((p["t"], kind, p.get("y") if kind == "movie" else None), []).append(p)
     calls = 0
     for (title, kind, year), progs in todo.items():
