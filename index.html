@@ -256,9 +256,9 @@ function chCell(c){
   return `<div class="ch">${c.logo ? `<img src="${esc(c.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ""}<span class="nm">${esc(c.name)}</span>${state.favs.has(c.id) ? '<span class="star" aria-label="Favori">★</span>' : ""}</div>`;
 }
 /* ---------- Critiques ---------- */
-const SRC_NAMES = {telerama:"Télérama", "télérama":"Télérama", spectators:"Spectateurs", spectateurs:"Spectateurs", press:"Presse", presse:"Presse", allocine:"AlloCiné", teleloisirs:"Télé-Loisirs", "tele 2 semaines":"Télé 2 Semaines", tele2semaines:"Télé 2 Semaines", critics:"Presse", critiques:"Presse"};
+const SRC_NAMES = {tmdb:"Spectateurs (TMDB)", telerama:"Télérama", "télérama":"Télérama", spectators:"Spectateurs", spectateurs:"Spectateurs", press:"Presse", presse:"Presse", allocine:"AlloCiné", teleloisirs:"Télé-Loisirs", "tele 2 semaines":"Télé 2 Semaines", tele2semaines:"Télé 2 Semaines", critics:"Presse", critiques:"Presse"};
 const srcName = s => { const k = String(s || "").toLowerCase().trim(); return SRC_NAMES[k] || (k ? s.charAt(0).toUpperCase() + s.slice(1) : "Critique"); };
-const isAudience = s => /spectat|public|audience|user/i.test(s || "");
+const isAudience = s => /spectat|public|audience|user|tmdb/i.test(s || "");
 function score5(r){ return r.m ? r.v / r.m * 5 : r.v; }
 function bestNote(p){
   if (!p.sr || !p.sr.length) return null;
@@ -407,7 +407,8 @@ function openSheet(cid, s){
     ${p.d ? `<p class="desc">${esc(p.d)}</p>` : ""}
     ${p.dr || p.ac ? `<p class="desc" style="color:var(--muted)">${p.dr ? `De ${esc(p.dr.join(", "))}` : ""}${p.dr && p.ac ? ". " : ""}${p.ac ? `Avec ${esc(p.ac.join(", "))}` : ""}.</p>` : ""}
     ${p.sr || p.rv ? `<div class="reviews"><h3>Critiques</h3>
-      ${p.sr ? `<div class="notes">${p.sr.map(r => `<span><b>${esc(srcName(r.s))}</b>${starsHtml(score5(r))}</span>`).join("")}</div>` : ""}
+      ${p.sr ? `<div class="notes">${p.sr.map(r => `<span><b>${esc(srcName(r.s))}</b>${starsHtml(score5(r))}<small style="color:var(--muted)">${(Math.round(score5(r)*10)/10).toLocaleString("fr-FR")}${r.n ? ` · ${r.n.toLocaleString("fr-FR")} avis` : ""}</small></span>`).join("")}</div>` : ""}
+      ${(p.sr || []).filter(r => r.s === "TMDB" && r.id).map(r => `<p class="via"><a href="https://www.themoviedb.org/${r.k === "movie" ? "movie" : "tv"}/${r.id}?language=fr" target="_blank" rel="noopener" style="color:inherit">Fiche et avis sur TMDB</a> · notes des spectateurs fournies par The Movie Database (TMDB), sans approbation de leur part.</p>`).join("")}
       ${(p.rv || []).map(r => `<blockquote>${esc(r.t)}${r.src ? `<cite>${esc(srcName(r.src))}</cite>` : ""}</blockquote>`).join("")}
     </div>` : ""}
     ${(() => {
