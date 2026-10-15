@@ -204,7 +204,7 @@ const LIVE = {
   rmcstory:       ["https://www.rmcbfmplay.com/direct/rmc_story", "RMC+", true],
   rmcdecouverte:  ["https://www.rmcbfmplay.com/direct/rmc_decouverte", "RMC+", true]
 };
-const ALIAS = {lcppublicsenat:"lcp", publicsenat:"lcp", lcpan:"lcp", lequipetv:"lequipe", lequipe21:"lequipe", franceinfotv:"franceinfo", bfm:"bfmtv", tf1seriesfilm:"tf1seriesfilms", tf1sf:"tf1seriesfilms"};
+const ALIAS = {lcppublicsenat:"lcp", publicsenat:"lcp", lcpan:"lcp", lequipetv:"lequipe", lequipe21:"lequipe", lachainelequipe:"lequipe", franceinfotv:"franceinfo", bfm:"bfmtv", tf1seriesfilm:"tf1seriesfilms", tf1sf:"tf1seriesfilms"};
 function liveOf(c){
   const k = c.name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
   const key = LIVE[k] ? k : ALIAS[k] || (LIVE[k.replace(/hd$/,"")] ? k.replace(/hd$/,"") : null);
@@ -257,7 +257,7 @@ function chCell(c){
 }
 /* ---------- Critiques ---------- */
 const SRC_NAMES = {telerama:"Télérama", "télérama":"Télérama", spectators:"Spectateurs", spectateurs:"Spectateurs", press:"Presse", presse:"Presse", allocine:"AlloCiné", teleloisirs:"Télé-Loisirs", "tele 2 semaines":"Télé 2 Semaines", tele2semaines:"Télé 2 Semaines", critics:"Presse", critiques:"Presse"};
-const srcName = s => { const k = String(s || "").toLowerCase().trim(); return SRC_NAMES[k] || (k ? s.charAt(0).toUpperCase() + s.slice(1) : "Note"); };
+const srcName = s => { const k = String(s || "").toLowerCase().trim(); return SRC_NAMES[k] || (k ? s.charAt(0).toUpperCase() + s.slice(1) : "Critique"); };
 const isAudience = s => /spectat|public|audience|user/i.test(s || "");
 function score5(r){ return r.m ? r.v / r.m * 5 : r.v; }
 function bestNote(p){
