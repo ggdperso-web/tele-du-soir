@@ -2,9 +2,9 @@ name: Mise à jour des programmes
 
 on:
   schedule:
-    - cron: "17 3 * * *"
-    - cron: "17 15 * * *"
-  workflow_dispatch:
+    - cron: "17 3 * * *"     # tous les jours vers 5 h (heure de Paris)
+    - cron: "17 15 * * *"    # et vers 17 h
+  workflow_dispatch:          # bouton « Run workflow » pour lancer à la main
 
 permissions:
   contents: write
@@ -13,16 +13,18 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Télécharger et convertir le guide TV
         run: python scripts/convert.py
+        env:
+          TMDB_KEY: ${{ secrets.TMDB_KEY }}
       - name: Enregistrer
         run: |
           git config user.name "tele-du-soir"
           git config user.email "actions@users.noreply.github.com"
-          git add data/programmes.json
+          git add data/programmes.json data/tmdb-cache.json 2>/dev/null || git add data/programmes.json
           git diff --cached --quiet || git commit -m "Programmes du $(date +'%d/%m/%Y %H:%M')"
           git push
